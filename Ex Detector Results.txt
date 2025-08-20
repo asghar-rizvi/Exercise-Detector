@@ -1,0 +1,131 @@
+exercises:
+distinct_exercises = [
+    'barbell biceps curl',
+    'bench press',
+    'chest fly machine',
+    'deadlift',
+    'hammer curl',
+    'hip thrust',
+    'lat pulldown',
+    'lateral raise',
+    'leg extension',
+    'leg raises',
+    'plank',
+    'pull Up',
+    'push-up',
+    'russian twist',
+    'shoulder press',
+    'squat',
+    't bar row',
+    'tricep Pushdown'
+]
+
+
+First Approach to find If We should have angle delta columns or not
+
+=====================================================================================
+seq length = 25, overlap= 15
+Angle Change Included
+Outliers Removed
+
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy: 0.6961				Validation Accuracy: 0.7157	
+Test Accuracy: 0.3103					Test Accuracy: 0.1860
+
+=====================================================================================
+seq length = 25, overlap= 15
+Angle Change Not Included
+OutliersRemoved
+
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy:0.6871				Validation Accuracy: 0.6986
+Test Accuracy: 0.1965					Test Accuracy: 0.2155
+
+
+
+BY VIEWING THIS I CONCLUDED, I SHOULD INCLUDE ANGLE CHANGE DELTA COLUMNS
+
+
+
+
+---------------------------------------------------------------------------------------
+Second Approach to find If We should have outliers or not
+---------------------------------------------------------------------------------------
+seq length = 25, overlap= 15
+Angle Change Included
+Outliers Not Removed
+
+
+Random Forest Classifier:				LGM: (done good for class 17)
+
+Validation Accuracy: 0.6871				Validation Accuracy: 0.6986	
+Test Accuracy: 0.1965					Test Accuracy: 0.1860
+
+
+---------------------------------------------------------------------------------------
+
+NOT MUCH IMPROVEMENTS FOUNDED, GONNA START WITH SEQ LENGTH= 35 AND OVERLAP= 10 NOW
+---------------------------------------------------------------------------------------
+
+=====================================================================================
+seq length = 35, overlap= 10
+Angle Change  Included
+Outliers Removed
+
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy: 0.7009				Validation Accuracy: 0.6636
+Test Accuracy: 0.2381					Test Accuracy: 0.2381
+
+=====================================================================================
+seq length = 35, overlap= 10
+Angle Change  Included
+Outliers Not Removed
+
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy: 0.5809				Validation Accuracy: 0.5426
+Test Accuracy: 0.2044					Test Accuracy: 0.2117
+
+=====================================================================================
+
+
+---------------------------------------------------------------------------------------
+NOW WE ARE TRYING TO DO IT WITH OVERLAP = 0 AND SEE IF SOMETHING CHANES
+---------------------------------------------------------------------------------------
+
+=====================================================================================
+seq length = 25, overlap= 0
+Angle Change  Included
+Outliers Removed
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy: 0.6852				Validation Accuracy: 0.6975
+Test Accuracy: 0.2963					Test Accuracy: 0.2222
+
+=====================================================================================
+
+
+=====================================================================================
+seq length = 30, overlap= 0
+Angle Change  Included
+Outliers Removed
+
+Random Forest Classifier:				LGM:
+
+Validation Accuracy: 0.6803				Validation Accuracy: 0.6311
+Test Accuracy: 0.3256					Test Accuracy: 0.2791
+
+=====================================================================================
+
+
+
+
+

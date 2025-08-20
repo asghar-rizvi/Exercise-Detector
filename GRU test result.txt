@@ -1,0 +1,29 @@
+distinct_exercises = [
+    'deadlift',
+    'hammer curl',
+    'lateral raise',
+    'plank',
+    'push-up',
+    'russian twist',
+    'squat',
+]
+
+
+
+========================================================================
+			gru_model.h5
+========================================================================
+accuracy: 0.9016 - loss: 0.3049 - val_accuracy: 0.8840 - val_loss: 0.6841
+Test Loss: 2.4058
+Test Accuracy: 0.4646
+
+
+========================================================================
+			gru_model_2.h5    -------->>>>  USED BATCH NORMALIZATION
+========================================================================
+
+accuracy: 0.9438 - loss: 0.1912 - val_accuracy: 0.9091 - val_loss: 0.4549
+Test Loss: 2.3666
+Test Accuracy: 0.4848
+
+
