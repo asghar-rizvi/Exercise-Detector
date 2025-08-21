@@ -8,9 +8,8 @@ import json
 import math
 import time
 
-# --- Step 1: Load the GRU Model and Preprocessing Files ---
 try:
-    gru_model = load_model('files/gru_model_2.h5')
+    gru_model = load_model('files/GRU_model_3.h5')
     scaler = joblib.load('files/real_time_scaler.pkl')
     with open('files/encoded_labels.json', 'r') as f:
         label_mapping = json.load(f)
@@ -37,7 +36,6 @@ POSE_LANDMARKS = {
     "nose": 0
 }
 
-# IMPORTANT: These MUST exactly match the definitions from your final training script.
 ANGLE_DEFINITIONS = {
     "left_elbow_angle": ("left_shoulder", "left_elbow", "left_wrist"),
     "right_elbow_angle": ("right_shoulder", "right_elbow", "right_wrist"),
@@ -73,6 +71,8 @@ sequence_length = 25
 frame_sequence = []
 prediction_label = "No Detection"
 confidence = 0.0
+# Define the label for "No person detected"
+no_person_label = "No Person Detected"
 
 feature_names = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
 
@@ -95,65 +95,57 @@ while cap.isOpened():
     results = pose.process(image)
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-    current_features = {}
-
-    try:
-        landmarks = results.pose_landmarks.landmark
-        keypoints = {
-            name: [landmarks[id].x, landmarks[id].y] for name, id in POSE_LANDMARKS.items()
-        }
-
-        # Generate angles and distances for the current frame
-        for angle_name, (a, b, c) in ANGLE_DEFINITIONS.items():
-            pa = keypoints[a]
-            pb = keypoints[b]
-            pc = keypoints[c]
-            current_features[angle_name] = calculate_angle(pa, pb, pc)
-            
-        for dist_name, (p1, p2) in DISTANCE_DEFINITIONS.items():
-            current_features[dist_name] = calculate_distance(keypoints[p1], keypoints[p2])
-
-    except:
-        # If no landmarks detected, fill with zeros
-        for col in feature_names:
-            current_features[col] = 0
-
-    # Create a feature vector from the dictionary, in the correct order
-    feature_vector = np.array([current_features[key] for key in feature_names], dtype=np.float32)
-
-    # Add the feature vector to the sequence
-    frame_sequence.append(feature_vector)
-    # Maintain a fixed-size sliding window
-    frame_sequence = frame_sequence[-sequence_length:]
     
-    current_time = time.time()
-    
-    # Only make a prediction when the sequence is full and at the specified interval
-    if len(frame_sequence) == sequence_length and (current_time - last_prediction_time) >= prediction_interval:
-        # Reshape for scaler (2D: [samples, features])
-        sequence_to_scale = np.array(frame_sequence).reshape(-1, len(feature_names))
-        
-        # Scale the entire sequence at once
-        scaled_sequence = scaler.transform(sequence_to_scale)
-        
-        # Reshape back to 3D for GRU model
-        input_data = scaled_sequence.reshape(1, sequence_length, len(feature_names))
-        
-        # Make a prediction
-        prediction_probabilities = gru_model.predict(input_data, verbose=0)[0]
-        predicted_class_index = np.argmax(prediction_probabilities)
-        
-        # Decode the prediction
-        prediction_label = label_mapping[predicted_class_index]
-        confidence = prediction_probabilities[predicted_class_index]
-        
-        last_prediction_time = current_time
-    
-    # --- Display Logic ---
+    # --- CHECK FOR PERSON DETECTION ---
     if results.pose_landmarks:
+        # A person is detected, so proceed with feature extraction and prediction.
+        current_features = {}
+        try:
+            landmarks = results.pose_landmarks.landmark
+            keypoints = {
+                name: [landmarks[id].x, landmarks[id].y] for name, id in POSE_LANDMARKS.items()
+            }
+
+            for angle_name, (a, b, c) in ANGLE_DEFINITIONS.items():
+                pa = keypoints[a]
+                pb = keypoints[b]
+                pc = keypoints[c]
+                current_features[angle_name] = calculate_angle(pa, pb, pc)
+            
+            for dist_name, (p1, p2) in DISTANCE_DEFINITIONS.items():
+                current_features[dist_name] = calculate_distance(keypoints[p1], keypoints[p2])
+
+        except Exception:
+            # Fallback for unexpected errors during feature extraction
+            for col in feature_names:
+                current_features[col] = 0
+
+        feature_vector = np.array([current_features[key] for key in feature_names], dtype=np.float32)
+        frame_sequence.append(feature_vector)
+        frame_sequence = frame_sequence[-sequence_length:]
+    
+        current_time = time.time()
+    
+        if len(frame_sequence) == sequence_length and (current_time - last_prediction_time) >= prediction_interval:
+            sequence_to_scale = np.array(frame_sequence).reshape(-1, len(feature_names))
+            scaled_sequence = scaler.transform(sequence_to_scale)
+            input_data = scaled_sequence.reshape(1, sequence_length, len(feature_names))
+            
+            prediction_probabilities = gru_model.predict(input_data, verbose=0)[0]
+            predicted_class_index = np.argmax(prediction_probabilities)
+            
+            prediction_label = label_mapping[predicted_class_index]
+            confidence = prediction_probabilities[predicted_class_index]
+            last_prediction_time = current_time
+            
         mp.solutions.drawing_utils.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+    
+    else:
+        prediction_label = no_person_label
+        confidence = 0.0
+        frame_sequence = []  
         
+    # --- Display Logic ---
     cv2.putText(image, f'Prediction: {prediction_label}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
     cv2.putText(image, f'Confidence: {confidence:.2f}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
     
