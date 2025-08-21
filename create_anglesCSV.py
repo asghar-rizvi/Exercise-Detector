@@ -88,6 +88,6 @@ def process_csv_revised(input_csv, output_csv):
     print(f"Saved {output_csv}, shape={final_df.shape}")
 
 if __name__ == "__main__":
-    process_csv_revised("dataset/keypoints/dataset_train.csv", "dataset/angles/angles_train_slim.csv")
-    process_csv_revised("dataset/keypoints/dataset_val.csv", "dataset/angles/angles_val_slim.csv")
-    process_csv_revised("dataset/keypoints/dataset_test.csv", "dataset/angles/angles_test_slim.csv")
+    process_csv_revised("dataset/keypoints/dataset_train.csv", "dataset/angles/angles_train.csv")
+    process_csv_revised("dataset/keypoints/dataset_val.csv", "dataset/angles/angles_val.csv")
+    process_csv_revised("dataset/keypoints/dataset_test.csv", "dataset/angles/angles_test.csv")
