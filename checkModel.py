@@ -9,7 +9,7 @@ import math
 import time
 
 try:
-    gru_model = load_model('files/GRU_model_3.h5')
+    gru_model = load_model('files/GRU_model_4.h5')
     scaler = joblib.load('files/real_time_scaler.pkl')
     with open('files/encoded_labels.json', 'r') as f:
         label_mapping = json.load(f)
@@ -45,7 +45,7 @@ ANGLE_DEFINITIONS = {
     "right_hip_angle": ("right_shoulder", "right_hip", "right_knee"),
     "shoulder_angle": ("left_elbow", "left_shoulder", "right_shoulder"),
     "hip_angle": ("left_knee", "left_hip", "right_hip"),
-    "torso_angle": ("left_shoulder", "left_hip", "left_knee") 
+    "torso_angle": ("left_shoulder", "left_hip", "left_knee")
 }
 
 DISTANCE_DEFINITIONS = {
@@ -54,18 +54,40 @@ DISTANCE_DEFINITIONS = {
     "feet_distance": ("left_ankle", "right_ankle"),
 }
 
+# --- Helper functions ---
 def calculate_angle(a, b, c):
-    a = np.array(a)
-    b = np.array(b)
-    c = np.array(c)
+    a, b, c = np.array(a), np.array(b), np.array(c)
     ba = a - b
     bc = c - b
     cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
-    angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-    return np.degrees(angle)
+    return np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0)))
 
-def calculate_distance(point1, point2):
-    return math.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
+def calculate_distance(p1, p2):
+    return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
+def calculate_vertical_angle(p1, p2):
+    dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+    if dy == 0:
+        return 90.0
+    return math.degrees(math.atan(abs(dx) / abs(dy)))
+
+def calculate_symmetry(l, r):
+    if l == 0 and r == 0:
+        return 1.0
+    return 1.0 - abs(l - r) / max(l, r, 1e-6)
+
+# --- Build full feature list (angles, distances + new engineered ones) ---
+BASE_FEATURES = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
+EXTRA_FEATURES = [
+    "elbow_symmetry", "knee_symmetry", "hip_symmetry",
+    "spine_angle",
+    "left_hand_to_shoulder_vertical", "right_hand_to_shoulder_vertical",
+    "left_elbow_to_hip_vertical", "right_elbow_to_hip_vertical",
+    "left_knee_to_hip_horizontal", "right_knee_to_hip_horizontal",
+    "left_ankle_to_knee_horizontal", "right_ankle_to_knee_horizontal",
+    "torso_lean", "stance_width_ratio"
+]
+feature_names = BASE_FEATURES + EXTRA_FEATURES
 
 sequence_length = 25
 frame_sequence = []
@@ -74,7 +96,7 @@ confidence = 0.0
 # Define the label for "No person detected"
 no_person_label = "No Person Detected"
 
-feature_names = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
+# feature_names = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
 
 last_prediction_time = time.time()
 prediction_interval = 0.5
@@ -98,28 +120,60 @@ while cap.isOpened():
     
     # --- CHECK FOR PERSON DETECTION ---
     if results.pose_landmarks:
-        # A person is detected, so proceed with feature extraction and prediction.
         current_features = {}
         try:
             landmarks = results.pose_landmarks.landmark
-            keypoints = {
-                name: [landmarks[id].x, landmarks[id].y] for name, id in POSE_LANDMARKS.items()
-            }
+            keypoints = {name: [landmarks[idx].x, landmarks[idx].y] for name, idx in POSE_LANDMARKS.items()}
 
+            # 1. Base angles
             for angle_name, (a, b, c) in ANGLE_DEFINITIONS.items():
-                pa = keypoints[a]
-                pb = keypoints[b]
-                pc = keypoints[c]
-                current_features[angle_name] = calculate_angle(pa, pb, pc)
-            
+                current_features[angle_name] = calculate_angle(keypoints[a], keypoints[b], keypoints[c])
+
+            # 2. Base distances
             for dist_name, (p1, p2) in DISTANCE_DEFINITIONS.items():
                 current_features[dist_name] = calculate_distance(keypoints[p1], keypoints[p2])
 
+            # 3. Extra engineered features
+            current_features["elbow_symmetry"] = calculate_symmetry(current_features["left_elbow_angle"], current_features["right_elbow_angle"])
+            current_features["knee_symmetry"] = calculate_symmetry(current_features["left_knee_angle"], current_features["right_knee_angle"])
+            current_features["hip_symmetry"] = calculate_symmetry(current_features["left_hip_angle"], current_features["right_hip_angle"])
+
+            # Spine
+            shoulder_mid = ((keypoints["left_shoulder"][0] + keypoints["right_shoulder"][0]) / 2,
+                            (keypoints["left_shoulder"][1] + keypoints["right_shoulder"][1]) / 2)
+            hip_mid = ((keypoints["left_hip"][0] + keypoints["right_hip"][0]) / 2,
+                    (keypoints["left_hip"][1] + keypoints["right_hip"][1]) / 2)
+            current_features["spine_angle"] = calculate_vertical_angle(shoulder_mid, hip_mid)
+
+            # Hand vs shoulder
+            current_features["left_hand_to_shoulder_vertical"] = keypoints["left_shoulder"][1] - keypoints["left_wrist"][1]
+            current_features["right_hand_to_shoulder_vertical"] = keypoints["right_shoulder"][1] - keypoints["right_wrist"][1]
+
+            # Elbow vs hip
+            current_features["left_elbow_to_hip_vertical"] = keypoints["left_hip"][1] - keypoints["left_elbow"][1]
+            current_features["right_elbow_to_hip_vertical"] = keypoints["right_hip"][1] - keypoints["right_elbow"][1]
+
+            # Knee vs hip (x-axis)
+            current_features["left_knee_to_hip_horizontal"] = abs(keypoints["left_knee"][0] - keypoints["left_hip"][0])
+            current_features["right_knee_to_hip_horizontal"] = abs(keypoints["right_knee"][0] - keypoints["right_hip"][0])
+
+            # Ankle vs knee (x-axis)
+            current_features["left_ankle_to_knee_horizontal"] = abs(keypoints["left_ankle"][0] - keypoints["left_knee"][0])
+            current_features["right_ankle_to_knee_horizontal"] = abs(keypoints["right_ankle"][0] - keypoints["right_knee"][0])
+
+            # Torso lean
+            current_features["torso_lean"] = calculate_vertical_angle(keypoints["left_shoulder"], keypoints["left_hip"])
+
+            # Stance width / shoulder width
+            shoulder_width = calculate_distance(keypoints["left_shoulder"], keypoints["right_shoulder"])
+            current_features["stance_width_ratio"] = current_features["feet_distance"] / shoulder_width if shoulder_width > 0 else 0
+
         except Exception:
-            # Fallback for unexpected errors during feature extraction
+            # fallback if something breaks
             for col in feature_names:
                 current_features[col] = 0
 
+        # Convert into feature vector with correct order
         feature_vector = np.array([current_features[key] for key in feature_names], dtype=np.float32)
         frame_sequence.append(feature_vector)
         frame_sequence = frame_sequence[-sequence_length:]
