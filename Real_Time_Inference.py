@@ -9,9 +9,9 @@ import math
 import time
 
 try:
-    gru_model = load_model('files/GRU_model_4.h5')
-    scaler = joblib.load('files/real_time_scaler.pkl')
-    with open('files/encoded_labels.json', 'r') as f:
+    gru_model = load_model('files/GRU_model_6/GRU_model_6.h5')
+    scaler = joblib.load('files/GRU_model_6/real_time_scaler.pkl')
+    with open('files/GRU_model_6/encoded_labels.json', 'r') as f:
         label_mapping = json.load(f)
         label_mapping = {int(k): v for k, v in label_mapping.items()}
     print("GRU model and preprocessing files loaded successfully!")
@@ -22,9 +22,11 @@ except Exception as e:
     print(f"An unexpected error occurred: {e}")
     exit()
 
-# --- Step 2: Define Landmarks and the Exact Features Used for Training ---
+
+No_Ex_Classes = ["Sitting", "Walking", "Standing Still"]
+
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+pose = mp_pose.Pose(min_detection_confidence=0.3, min_tracking_confidence=0.3)
 
 POSE_LANDMARKS = {
     "left_shoulder": 11, "right_shoulder": 12,
@@ -41,7 +43,6 @@ ANGLE_DEFINITIONS = {
     "right_elbow_angle": ("right_shoulder", "right_elbow", "right_wrist"),
     "left_knee_angle": ("left_hip", "left_knee", "left_ankle"),
     "right_knee_angle": ("right_hip", "right_knee", "right_ankle"),
-    "left_hip_angle": ("left_shoulder", "left_hip", "left_knee"),
     "right_hip_angle": ("right_shoulder", "right_hip", "right_knee"),
     "shoulder_angle": ("left_elbow", "left_shoulder", "right_shoulder"),
     "hip_angle": ("left_knee", "left_hip", "right_hip"),
@@ -78,12 +79,11 @@ def calculate_symmetry(l, r):
 
 # --- Build full feature list (angles, distances + new engineered ones) ---
 BASE_FEATURES = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
+
 EXTRA_FEATURES = [
-    "elbow_symmetry", "knee_symmetry", "hip_symmetry",
-    "spine_angle",
+    "elbow_symmetry", "knee_symmetry",
     "left_hand_to_shoulder_vertical", "right_hand_to_shoulder_vertical",
     "left_elbow_to_hip_vertical", "right_elbow_to_hip_vertical",
-    "left_knee_to_hip_horizontal", "right_knee_to_hip_horizontal",
     "left_ankle_to_knee_horizontal", "right_ankle_to_knee_horizontal",
     "torso_lean", "stance_width_ratio"
 ]
@@ -93,10 +93,8 @@ sequence_length = 25
 frame_sequence = []
 prediction_label = "No Detection"
 confidence = 0.0
-# Define the label for "No person detected"
 no_person_label = "No Person Detected"
-
-# feature_names = list(ANGLE_DEFINITIONS.keys()) + list(DISTANCE_DEFINITIONS.keys())
+CONFIDENCE_THRESHOLD = 0.8
 
 last_prediction_time = time.time()
 prediction_interval = 0.5
@@ -128,23 +126,19 @@ while cap.isOpened():
             # 1. Base angles
             for angle_name, (a, b, c) in ANGLE_DEFINITIONS.items():
                 current_features[angle_name] = calculate_angle(keypoints[a], keypoints[b], keypoints[c])
+            
+            # Additional left_hip_angle as per your list
+            current_features["left_hip_angle"] = calculate_angle(keypoints["left_shoulder"], keypoints["left_hip"], keypoints["left_knee"])
 
             # 2. Base distances
             for dist_name, (p1, p2) in DISTANCE_DEFINITIONS.items():
                 current_features[dist_name] = calculate_distance(keypoints[p1], keypoints[p2])
 
-            # 3. Extra engineered features
+            # 3. All engineered features (as per your list)
+            # Symmetry features
             current_features["elbow_symmetry"] = calculate_symmetry(current_features["left_elbow_angle"], current_features["right_elbow_angle"])
             current_features["knee_symmetry"] = calculate_symmetry(current_features["left_knee_angle"], current_features["right_knee_angle"])
-            current_features["hip_symmetry"] = calculate_symmetry(current_features["left_hip_angle"], current_features["right_hip_angle"])
-
-            # Spine
-            shoulder_mid = ((keypoints["left_shoulder"][0] + keypoints["right_shoulder"][0]) / 2,
-                            (keypoints["left_shoulder"][1] + keypoints["right_shoulder"][1]) / 2)
-            hip_mid = ((keypoints["left_hip"][0] + keypoints["right_hip"][0]) / 2,
-                    (keypoints["left_hip"][1] + keypoints["right_hip"][1]) / 2)
-            current_features["spine_angle"] = calculate_vertical_angle(shoulder_mid, hip_mid)
-
+            
             # Hand vs shoulder
             current_features["left_hand_to_shoulder_vertical"] = keypoints["left_shoulder"][1] - keypoints["left_wrist"][1]
             current_features["right_hand_to_shoulder_vertical"] = keypoints["right_shoulder"][1] - keypoints["right_wrist"][1]
@@ -152,10 +146,6 @@ while cap.isOpened():
             # Elbow vs hip
             current_features["left_elbow_to_hip_vertical"] = keypoints["left_hip"][1] - keypoints["left_elbow"][1]
             current_features["right_elbow_to_hip_vertical"] = keypoints["right_hip"][1] - keypoints["right_elbow"][1]
-
-            # Knee vs hip (x-axis)
-            current_features["left_knee_to_hip_horizontal"] = abs(keypoints["left_knee"][0] - keypoints["left_hip"][0])
-            current_features["right_knee_to_hip_horizontal"] = abs(keypoints["right_knee"][0] - keypoints["right_hip"][0])
 
             # Ankle vs knee (x-axis)
             current_features["left_ankle_to_knee_horizontal"] = abs(keypoints["left_ankle"][0] - keypoints["left_knee"][0])
@@ -187,9 +177,16 @@ while cap.isOpened():
             
             prediction_probabilities = gru_model.predict(input_data, verbose=0)[0]
             predicted_class_index = np.argmax(prediction_probabilities)
-            
-            prediction_label = label_mapping[predicted_class_index]
             confidence = prediction_probabilities[predicted_class_index]
+            
+            if confidence >= CONFIDENCE_THRESHOLD:
+                if label_mapping[predicted_class_index] not in No_Ex_Classes:
+                    prediction_label = label_mapping[predicted_class_index]
+                else :
+                    prediction_label = f"No Exercise"
+            else:
+                prediction_label = f"No Exercise" 
+            
             last_prediction_time = current_time
             
         mp.solutions.drawing_utils.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)

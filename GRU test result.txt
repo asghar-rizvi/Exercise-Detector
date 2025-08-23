@@ -19,11 +19,85 @@ Test Accuracy: 0.4646
 
 
 ========================================================================
-			gru_model_2.h5    -------->>>>  USED BATCH NORMALIZATION
+			gru_model_2.h5    -------->>>>  USED Bidirectional + BATCH NORMALIZATION
 ========================================================================
 
 accuracy: 0.9438 - loss: 0.1912 - val_accuracy: 0.9091 - val_loss: 0.4549
 Test Loss: 2.3666
 Test Accuracy: 0.4848
 
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< NO EXERCISE LABEL AND DATA ADDED >>>>>>>>>>>>>>>>
+
+========================================================================
+		USING PREVIOUS	gru_model_2.h5    -------->>>> USED Bidirectional + BATCH NORMALIZATION + MORE AUGMENTATION
+========================================================================
+
+accuracy: 0.8131 - loss: 0.5592 - val_accuracy: 0.7616 - val_loss: 0.7006
+Test Loss: 2.2933
+Test Accuracy: 0.3019
+
+
+=========================================================================
+				GRU_moodel.5    -------->>>Simplest GRU Model 64,32 dropout 0.3
+=========================================================================
+
+accuracy: 0.8485 - loss: 0.4368 - val_accuracy: 0.7907 - val_loss: 0.7082
+Test Loss: 2.2484
+Test Accuracy: 0.4811
+
+=========================================================================
+				GRU_moodel_1.5    -------->>>Simplest GRU Model 64,32 dropout 0.3 + batch Normalization
+=========================================================================
+
+accuracy: 0.8485 - loss: 0.4368 - val_accuracy: 0.7907 - val_loss: 0.7082
+Test Loss: 2.2484
+Test Accuracy: 0.4811
+
+
+
+
+========================================================================
+				GRU_MODEL_1.h5        ->>>>> model  Conv1D(32), Dropout(0.3), Gru(64), Dropout(0.3), Dense(32)
+========================================================================
+exercises: 'hammer curl',
+    'deadlift',
+    'lateral raise',
+    'plank',
+    'push-up',
+    'russian twist',
+    'squat',
+    'shoulder press',
+    'Sitting',
+    'Walking',
+    'Standing Still'.
+
+
+------->>>> ADDED 3 More For No Exercise Labels
+results:
+accuracy: 0.9028 - loss: 0.3188 - val_accuracy: 0.8032 - val_loss: 0.7616
+
+
+===========================================================================
+for the above exercise Set, trying complete GRU model----->>> GRU(64), Dropout(0.3), GRU(32),Dropout(0.3), Dense(64), Dropout(0.3), Dense(32)
+accuracy: 0.8426 - loss: 0.4870 - val_accuracy: 0.8100 - val_loss: 0.7463         GRU_MODEL_3.h5
+===========================================================================
+
+now we tried a bit changes: In above model we did Bidirectional in the first layer of GRU with 64, and after second Gru before dropout we applied BatchNormalization:
+accuracy: 0.8422 - loss: 0.5141 - val_accuracy: 0.8167 - val_loss: 0.6759
+
+----->SAVED==== GRU_MODEL_4.h5
+
+
+
+
+============================================================================
+same above model, with doing RESAMPLING on data set with light augmentation: 		GRU_MODEL_5.h5
+accuracy: 0.8675 - loss: 0.4225 - val_accuracy: 0.8303 - val_loss: 0.6249
+
+=============================================================================
+
+now with hard augmentation
+accuracy: 0.8359 - loss: 0.5292 - val_accuracy: 0.8394 - val_loss: 0.6218		GRU_MODEL_6.h5
+==============================================================================
 
