@@ -1,6 +1,3 @@
-
-
-```markdown
 # Exercise Detector
 
 A real-time exercise detection and form analysis system using pose estimation and deep learning. This project can identify different exercise types, analyze form correctness, and count repetitions with high accuracy, optimized for edge devices.
